@@ -119,13 +119,6 @@ h1 {
   gap: 16px;
 }
 
-.hint {
-  margin: -4px 0 0;
-  color: var(--muted);
-  line-height: 1.6;
-  font-size: 0.95rem;
-}
-
 label {
   display: grid;
   gap: 8px;
@@ -264,12 +257,6 @@ button.primary {
   color: #04111b;
 }
 
-button.secondary {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-  border: 1px solid rgba(173, 200, 255, 0.16);
-}
-
 .status {
   border-radius: 18px;
   padding: 13px 16px;
@@ -297,12 +284,6 @@ button.secondary {
   margin-bottom: 18px;
 }
 
-.result-stack {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
 .result-label {
   margin-bottom: 10px;
   font-size: 0.9rem;
@@ -325,6 +306,48 @@ button.secondary {
   gap: 12px;
 }
 
+.map-wrap {
+  margin-top: 18px;
+}
+
+.map-wrap--compact {
+  margin-top: 16px;
+}
+
+.map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.map-status {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.result-map {
+  width: 100%;
+  height: 320px;
+  border-radius: 18px;
+  border: 1px solid rgba(173, 200, 255, 0.14);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.result-map--compact {
+  height: 220px;
+}
+
+.result-map--old {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.result-map--old .leaflet-control-attribution {
+  display: none !important;
+}
+
 .mini-card {
   border-radius: 18px;
   padding: 14px;
@@ -336,10 +359,6 @@ button.secondary {
   margin-top: 8px;
   font-size: 1rem;
   line-height: 1.45;
-}
-
-.fade-in {
-  animation: fadeIn 0.28s ease-out;
 }
 
 .site-footer {
@@ -399,26 +418,9 @@ button.secondary {
   min-height: 150px;
   padding: 14px;
   border-radius: 18px;
-  border: 0;
   background: transparent;
   color: var(--text);
   text-align: center;
-  overflow: hidden;
-}
-
-.support-qr span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  border: 1px solid rgba(173, 200, 255, 0.22);
-  background: rgba(6, 16, 29, 0.7);
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-indent: 0.18em;
 }
 
 .support-qr img {
@@ -478,5 +480,13 @@ button.secondary {
   .card {
     padding: 18px;
     border-radius: 24px;
+  }
+
+  .result-map {
+    height: 260px;
+  }
+
+  .result-map--compact {
+    height: 200px;
   }
 }

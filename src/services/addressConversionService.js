@@ -109,6 +109,7 @@ class AddressConversionService {
         province: administrative.province,
         district: administrative.district,
         ward: administrative.ward,
+        geometry: matchedFeature.geometry,
       },
       source_administrative_system: "new",
       target_administrative_system: "old",

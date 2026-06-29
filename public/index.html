@@ -1,127 +1,165 @@
 <!doctype html>
 <html lang="vi">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Chuyển địa chỉ hành chính mới sang địa chỉ cũ." />
-  <title>Chuyển Địa Chỉ</title>
-  <link rel="stylesheet" href="/styles.css" />
-</head>
-
-<body>
-  <main class="shell">
-    <section class="hero">
-      <div class="hero-copy">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Chuyển địa chỉ hành chính mới sang địa chỉ cũ bằng ranh giới GeoJSON."
+    />
+    <title>Chuyển Địa Chỉ</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
         <p class="eyebrow">Chuyển đổi địa chỉ hành chính</p>
-          <h1 id="hero-title">Nhập địa chỉ mới, xem địa chỉ cũ ngay</h1>
-          <p class="lede" id="hero-copy">
-            Nhập địa chỉ bạn đang dùng, hệ thống sẽ giúp bạn tìm lại địa chỉ cũ một cách nhanh
-            gọn và dễ hiểu.
-          </p>
-        </div>
+        <h1 id="hero-title">Nhập địa chỉ mới, xem địa chỉ cũ ngay</h1>
+        <p class="lede" id="hero-copy">
+          Chỉ cần nhập địa chỉ hiện tại. Hệ thống sẽ dò vị trí và trả lại địa chỉ trước sáp nhập.
+        </p>
       </section>
 
-    <section class="workspace">
-      <div class="card form-card">
-        <div class="card-head">
-          <h2 id="form-title">Nhập địa chỉ mới</h2>
-          <p id="form-subtitle">
-            Nhập đúng địa chỉ bạn đang dùng để hệ thống tra ra địa chỉ cũ.
-          </p>
-        </div>
-
-        <form id="convert-form" class="form">
-          <label>
-            <span class="field-label">
-              <span>Địa chỉ</span>
-              <button type="button" class="hint-badge" aria-label="Gợi ý cách nhập địa chỉ">
-                ?
-                <span class="hint-tooltip" role="tooltip">
-                  Gợi ý: nhập số nhà, xã/phường, quận/huyện, tỉnh/thành phố.
-                </span>
-              </button>
-            </span>
-            <input id="address-input" name="address-input" type="text" placeholder="Nhập địa chỉ của bạn"
-              autocomplete="off" required />
-          </label>
-
-          <div class="actions">
-            <button type="submit" class="primary" id="submit-button">Chuyển đổi</button>
-          </div>
-        </form>
-
-        <div class="quick-guide">
-          <p class="quick-guide__label">Hướng dẫn nhanh</p>
-          <p class="quick-guide__text">
-            Nên kiểm tra địa chỉ trên bản đồ trước, rồi nhập lại địa chỉ chuẩn và đầy đủ.
-            Hệ thống sẽ tự tìm vị trí trên bản đồ, rồi dò ranh giới hành chính cũ để trả kết
-            quả.
-          </p>
-        </div>
-      </div>
-
-      <div class="card result-card">
-        <div class="card-head">
-          <h2>Kết quả</h2>
-          <p>Địa chỉ sau khi chuyển đổi sẽ hiển thị ở đây.</p>
-        </div>
-
-        <div id="status" class="status neutral">Chưa chạy truy vấn.</div>
-
-        <div class="result-block">
-          <div class="result-label" id="result-label">Địa chỉ sau chuyển đổi</div>
-          <div id="converted-address" class="result-value muted">-</div>
-        </div>
-
-        <div class="result-grid">
-          <div class="mini-card">
-            <span>Tỉnh / Thành phố</span>
-            <strong id="province">-</strong>
-          </div>
-          <div class="mini-card">
-            <span>Huyện / Quận</span>
-            <strong id="district">-</strong>
-          </div>
-          <div class="mini-card">
-            <span>Xã / Phường</span>
-            <strong id="ward">-</strong>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <footer class="site-footer">
-      <div class="site-footer__card">
-        <div class="site-footer__footer-grid">
-          <div>
-            <p class="site-footer__label">Thông tin liên hệ</p>
-            <p class="site-footer__text">Địa chỉ: Hưng Yên</p>
-            <p class="site-footer__text">Contact: hinhdevops@gmail.com</p>
-            <p class="site-footer__note">
-              Cam kết: ứng dụng không thu thập dữ liệu cá nhân của bạn.
+      <section class="workspace">
+        <div class="card form-card">
+          <div class="card-head">
+            <h2 id="form-title">Nhập địa chỉ mới</h2>
+            <p id="form-subtitle">
+              Nhập đúng địa chỉ bạn đang dùng để hệ thống tra ra địa chỉ cũ.
             </p>
           </div>
 
-          <div class="site-footer__support">
+          <form id="convert-form" class="form">
+            <label>
+              <span class="field-label">
+                <span>Địa chỉ</span>
+                <button
+                  type="button"
+                  class="hint-badge"
+                  aria-label="Gợi ý cách nhập địa chỉ"
+                >
+                  ?
+                  <span class="hint-tooltip" role="tooltip">
+                    Gợi ý: nhập số nhà, thôn/xóm, xã/phường, quận/huyện, tỉnh/thành phố.
+                  </span>
+                </button>
+              </span>
+              <input
+                id="address-input"
+                name="address-input"
+                type="text"
+                placeholder="Nhập địa chỉ của bạn"
+                autocomplete="off"
+                required
+              />
+            </label>
+
+            <div class="actions">
+              <button type="submit" class="primary" id="submit-button">Chuyển đổi</button>
+            </div>
+          </form>
+
+          <div class="quick-guide">
+            <p class="quick-guide__label">Hướng dẫn nhanh</p>
+            <p class="quick-guide__text">
+              Nên kiểm tra địa chỉ trên bản đồ trước, rồi nhập lại địa chỉ chuẩn và đầy đủ. Hệ
+              thống sẽ tự tìm vị trí trên bản đồ, rồi dò ranh giới hành chính cũ để trả kết quả.
+            </p>
+          </div>
+
+          <div class="map-wrap map-wrap--compact">
+            <div class="map-head">
+              <p class="result-label">Vị trí địa chỉ mới</p>
+              <span id="input-map-status" class="map-status">Chưa có dữ liệu.</span>
+            </div>
+            <div
+              id="input-map"
+              class="result-map result-map--compact"
+              aria-label="Bản đồ địa chỉ mới"
+            ></div>
+          </div>
+        </div>
+
+        <div class="card result-card">
+          <div class="card-head">
+            <h2>Kết quả</h2>
+            <p>Địa chỉ sau khi chuyển đổi sẽ hiển thị ở đây.</p>
+          </div>
+
+          <div id="status" class="status neutral">Chưa chạy truy vấn.</div>
+
+          <div class="result-block">
+            <div class="result-label" id="result-label">Địa chỉ sau chuyển đổi</div>
+            <div id="converted-address" class="result-value muted">-</div>
+          </div>
+
+          <div class="result-grid">
+            <div class="mini-card">
+              <span>Tỉnh / Thành phố</span>
+              <strong id="province">-</strong>
+            </div>
+            <div class="mini-card">
+              <span>Huyện / Quận</span>
+              <strong id="district">-</strong>
+            </div>
+            <div class="mini-card">
+              <span>Xã / Phường</span>
+              <strong id="ward">-</strong>
+            </div>
+          </div>
+
+          <div class="map-wrap">
+            <div class="map-head">
+              <p class="result-label">Bản đồ địa chỉ cũ</p>
+              <span id="result-map-status" class="map-status">Hãy nhập địa chỉ để xem.</span>
+            </div>
+            <div
+              id="result-map"
+              class="result-map result-map--old"
+              aria-label="Bản đồ địa chỉ cũ"
+            ></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <div class="site-footer__card">
+          <div class="site-footer__footer-grid">
             <div>
-              <p class="site-footer__label">Ủng hộ nhà phát triển</p>
-              <p class="site-footer__text">
-                Nếu ứng dụng hữu ích với bạn, có thể quét QR bên dưới để ủng hộ mình duy trì
-                và phát triển thêm tính năng mới.
+              <p class="site-footer__label">Thông tin liên hệ</p>
+              <p class="site-footer__text">Địa chỉ: Hưng Yên</p>
+              <p class="site-footer__text">Contact: hinhdevops@gmail.com</p>
+              <p class="site-footer__note">
+                Cam kết: ứng dụng không thu thập dữ liệu cá nhân của bạn.
               </p>
             </div>
 
-            <div class="support-qr" aria-label="QR ủng hộ">
-              <img src="/qr.png" alt="QR ủng hộ" />
+            <div class="site-footer__support">
+              <div>
+                <p class="site-footer__label">Ủng hộ nhà phát triển</p>
+                <p class="site-footer__text">
+                  Nếu ứng dụng hữu ích với bạn, có thể quét QR bên dưới để ủng hộ mình duy trì và
+                  phát triển thêm tính năng mới.
+                </p>
+              </div>
+
+              <div class="support-qr" aria-label="QR ủng hộ">
+                <img src="/qr.png" alt="QR ủng hộ" />
+                <small>Quét QR để ủng hộ</small>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </footer>
-  </main>
+      </footer>
+    </main>
 
-  <script src="/app.js"></script>
-</body>
-
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="/app.js"></script>
+  </body>
 </html>
