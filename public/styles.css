@@ -341,11 +341,41 @@ button.primary {
 }
 
 .result-map--old {
-  background: rgba(255, 255, 255, 0.03);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.92), transparent 48%),
+    linear-gradient(180deg, #f8fbff 0%, #edf4fb 100%);
 }
 
 .result-map--old .leaflet-control-attribution {
   display: none !important;
+}
+
+.result-map--old .leaflet-container {
+  background: #f3f7fb;
+}
+
+.result-map--old .leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.96);
+  color: #16324f;
+  border-color: rgba(22, 50, 79, 0.15);
+}
+
+.geojson-label-marker {
+  pointer-events: none;
+}
+
+.geojson-label {
+  transform: translate(-50%, -50%);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(33, 184, 168, 0.28);
+  color: #143746;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
 .mini-card {

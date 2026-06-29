@@ -1,4 +1,4 @@
-const form = document.getElementById("convert-form");
+﻿const form = document.getElementById("convert-form");
 const addressInput = document.getElementById("address-input");
 const statusBox = document.getElementById("status");
 const convertedAddressBox = document.getElementById("converted-address");
@@ -20,7 +20,6 @@ const mapStores = {
   input: {
     map: null,
     pointLayer: null,
-    boundaryLayer: null,
     element: inputMapElement,
     statusEl: inputMapStatus,
     center: [16.047079, 108.20623],
@@ -28,14 +27,58 @@ const mapStores = {
   },
   result: {
     map: null,
-    pointLayer: null,
-    boundaryLayer: null,
+    baseLayer: null,
+    highlightLayer: null,
+    highlightLabel: null,
     element: resultMapElement,
     statusEl: resultMapStatus,
     center: [16.047079, 108.20623],
     zoom: 6,
   },
 };
+
+let oldBoundariesPromise = null;
+
+function buildRegionLabel(result, feature) {
+  const administrative = result?.converted_administrative || {};
+  const props = feature?.properties || {};
+  const ward = administrative.ward || props.ten_xa || props.tenXa || "";
+  const district = administrative.district || props.ten_huyen || props.tenHuyen || "";
+  const province = administrative.province || props.ten_tinh || props.tenTinh || "";
+  return [ward, district, province].filter(Boolean).join(", ");
+}
+
+function addCenterLabel(store, text, bounds) {
+  if (!store?.map || !text || !bounds?.isValid || !bounds.isValid()) return null;
+
+  const center = bounds.getCenter();
+  return L.marker(center, {
+    interactive: false,
+    keyboard: false,
+    icon: L.divIcon({
+      className: "geojson-label-marker",
+      html: `<div class="geojson-label">${text}</div>`,
+      iconSize: [1, 1],
+    }),
+  }).addTo(store.map);
+}
+
+function fitToHighlight(store) {
+  if (!store?.map || !store.highlightLayer) return;
+  const bounds = store.highlightLayer.getBounds();
+  if (bounds.isValid()) {
+    store.map.fitBounds(bounds.pad(0.18));
+  }
+}
+
+function cleanupHighlightArtifacts(store) {
+  if (!store?.map) return;
+
+  if (store.highlightLabel) {
+    store.map.removeLayer(store.highlightLabel);
+    store.highlightLabel = null;
+  }
+}
 
 function setStatus(type, text) {
   statusBox.className = `status ${type}`;
@@ -61,11 +104,13 @@ function ensureMap(which) {
     attributionControl: false,
   }).setView(store.center, store.zoom);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    opacity: 1,
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(store.map);
+  if (which === "input") {
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      opacity: 1,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(store.map);
+  }
 
   return store.map;
 }
@@ -79,10 +124,12 @@ function clearMapLayers(which) {
     store.pointLayer = null;
   }
 
-  if (store.boundaryLayer) {
-    store.map.removeLayer(store.boundaryLayer);
-    store.boundaryLayer = null;
+  if (store.highlightLayer) {
+    store.map.removeLayer(store.highlightLayer);
+    store.highlightLayer = null;
   }
+
+  cleanupHighlightArtifacts(store);
 }
 
 function fitMapToLayers(which) {
@@ -91,7 +138,8 @@ function fitMapToLayers(which) {
 
   const layers = [];
   if (store.pointLayer) layers.push(store.pointLayer);
-  if (store.boundaryLayer) layers.push(store.boundaryLayer);
+  if (which !== "result" && store.baseLayer) layers.push(store.baseLayer);
+  if (store.highlightLayer) layers.push(store.highlightLayer);
 
   if (layers.length > 0) {
     const group = L.featureGroup(layers);
@@ -107,7 +155,6 @@ function renderMap(which, result) {
   clearMapLayers(which);
 
   const coords = result?.geocoded_coordinates || result?.input_coordinates;
-  const geometry = which === "result" ? result?.matched_feature?.geometry : null;
 
   if (which === "input" && Number.isFinite(coords?.latitude) && Number.isFinite(coords?.longitude)) {
     const latlng = [coords.latitude, coords.longitude];
@@ -120,34 +167,92 @@ function renderMap(which, result) {
     }).addTo(store.map);
   }
 
-  if (which === "result" && geometry) {
-    store.boundaryLayer = L.geoJSON(
-      {
-        type: "Feature",
-        properties: {},
-        geometry,
-      },
-      {
-        style: {
-          color: "#8cfdf2",
-          weight: 6,
-          opacity: 1,
-          fillColor: "#56e7d2",
-          fillOpacity: 0.44,
-        },
+  if (which === "result") {
+    const geometry = result?.matched_feature?.geometry;
+    if (geometry) {
+      const applyHighlight = (geojson) => {
+        if (!mapStores.result.map || !window.L) return;
+
+        if (!store.baseLayer && geojson?.features) {
+          store.baseLayer = L.geoJSON(geojson, {
+            style: {
+              color: "#b9c6d8",
+              weight: 0.8,
+              opacity: 0.45,
+              fillColor: "#f3f7fb",
+              fillOpacity: 0.02,
+            },
+          }).addTo(store.map);
+        }
+
+        const featureId = result?.matched_feature?.feature_id;
+        const highlighted = featureId && geojson?.features
+          ? geojson.features.find((feature) => {
+              const sourceId = feature.id ?? feature.properties?.ma_xa ?? null;
+              return String(sourceId) === String(featureId);
+            })
+          : null;
+
+        const highlightGeometry = highlighted?.geometry || geometry;
+
+        if (store.highlightLayer) {
+          store.map.removeLayer(store.highlightLayer);
+          store.highlightLayer = null;
+        }
+        cleanupHighlightArtifacts(store);
+
+        store.highlightLayer = L.geoJSON(
+          {
+            type: "Feature",
+            properties: {},
+            geometry: highlightGeometry,
+          },
+          {
+            style: {
+              color: "#21b8a8",
+              weight: 3,
+              opacity: 1,
+              fillColor: "#5eead4",
+              fillOpacity: 0.24,
+            },
+          }
+        ).addTo(store.map);
+
+        const regionLabel = buildRegionLabel(result, highlighted || result?.matched_feature);
+        if (regionLabel) {
+          store.highlightLabel = addCenterLabel(store, regionLabel, store.highlightLayer.getBounds());
+        }
+
+        store.map.invalidateSize();
+        fitToHighlight(store);
+        setMapStatus("result", "Đã hiển thị bản đồ địa giới cũ.");
+      };
+
+      if (!store.baseLayer) {
+        oldBoundariesPromise = oldBoundariesPromise || fetch("/api/old-boundaries.geojson").then((response) => {
+          if (!response.ok) {
+            throw new Error("Không tải được geojson địa giới cũ.");
+          }
+          return response.json();
+        });
+
+        oldBoundariesPromise
+          .then(applyHighlight)
+          .catch(() => {
+            setMapStatus("result", "Không tải được bản đồ địa giới cũ.");
+          });
+      } else {
+        applyHighlight();
       }
-    ).addTo(store.map);
+    }
   }
 
-  if (store.pointLayer || store.boundaryLayer) {
+  if (store.pointLayer || store.baseLayer || store.highlightLayer) {
     store.map.invalidateSize();
-    fitMapToLayers(which);
-    setMapStatus(
-      which,
-      which === "input"
-        ? "Đã hiển thị vị trí địa chỉ mới."
-        : "Đã hiển thị địa giới cũ tương ứng."
-    );
+    if (which === "input") {
+      fitMapToLayers(which);
+      setMapStatus("input", "Đã hiển thị vị trí địa chỉ mới.");
+    }
   } else {
     store.map.invalidateSize();
     store.map.setView(store.center, store.zoom);
@@ -159,7 +264,6 @@ function renderMap(which, result) {
     );
   }
 }
-
 function resetResult() {
   convertedAddressBox.textContent = "-";
   convertedAddressBox.classList.add("muted");
@@ -171,7 +275,14 @@ function resetResult() {
   setMapStatus("result", "Hãy nhập địa chỉ để xem.");
 
   clearMapLayers("input");
-  clearMapLayers("result");
+  if (mapStores.result.highlightLayer) {
+    mapStores.result.map?.removeLayer(mapStores.result.highlightLayer);
+    mapStores.result.highlightLayer = null;
+  }
+  if (mapStores.result.highlightLabel) {
+    mapStores.result.map?.removeLayer(mapStores.result.highlightLabel);
+    mapStores.result.highlightLabel = null;
+  }
 
   if (mapStores.input.map) {
     mapStores.input.map.setView(mapStores.input.center, mapStores.input.zoom);
@@ -261,3 +372,38 @@ if (window.L) {
   ensureMap("input");
   ensureMap("result");
 }
+
+setMapStatus("result", "Đang tải bản đồ địa giới cũ...");
+oldBoundariesPromise = fetch("/api/old-boundaries.geojson")
+  .then((response) => {
+    if (!response.ok) {
+      throw new Error("Không tải được geojson địa giới cũ.");
+    }
+
+    return response.json();
+  })
+  .then((geojson) => {
+    if (!window.L || !mapStores.result.map) return geojson;
+
+    const store = mapStores.result;
+    if (!store.baseLayer) {
+      store.baseLayer = L.geoJSON(geojson, {
+        style: {
+          color: "#b9c6d8",
+          weight: 0.8,
+          opacity: 0.45,
+          fillColor: "#f3f7fb",
+          fillOpacity: 0.02,
+        },
+      }).addTo(store.map);
+
+      store.map.fitBounds(store.baseLayer.getBounds().pad(0.05));
+      setMapStatus("result", "Đã hiển thị bản đồ địa giới cũ.");
+    }
+
+    return geojson;
+  })
+  .catch(() => {
+    setMapStatus("result", "Không tải được bản đồ địa giới cũ.");
+    return null;
+  });

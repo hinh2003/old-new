@@ -69,6 +69,7 @@ class BoundaryRepository {
       throw new Error("Invalid GeoJSON file: expected a FeatureCollection.");
     }
 
+    this.raw = raw;
     this.features = raw.features
       .filter((feature) => feature && feature.geometry)
       .map((feature, featureIndex) => {
@@ -88,6 +89,14 @@ class BoundaryRepository {
     this.gridIndex = buildSpatialGrid(this.features, this.gridSize);
     this.loaded = true;
     return this;
+  }
+
+  getRawGeoJson() {
+    if (!this.loaded) {
+      throw new Error("Boundary repository has not been loaded yet.");
+    }
+
+    return this.raw;
   }
 
   findContainingFeature({ latitude, longitude }) {

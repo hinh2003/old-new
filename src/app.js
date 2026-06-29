@@ -62,6 +62,10 @@ function createApp() {
     });
   });
 
+  app.get("/api/old-boundaries.geojson", (_req, res) => {
+    res.json(boundaryRepository.getRawGeoJson());
+  });
+
   app.post("/convert-address", async (req, res) => {
     const { formatted_address, latitude, longitude } = req.body || {};
 
