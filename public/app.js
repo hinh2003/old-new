@@ -10,6 +10,7 @@ const heroCopy = document.getElementById("hero-copy");
 const formTitle = document.getElementById("form-title");
 const formSubtitle = document.getElementById("form-subtitle");
 const submitButton = document.getElementById("submit-button");
+const hintBadge = document.querySelector(".hint-badge");
 
 function setStatus(type, text) {
   statusBox.className = `status ${type}`;
@@ -74,10 +75,25 @@ form.addEventListener("submit", async (event) => {
 
 heroTitle.textContent = "Nhập địa chỉ mới, xem địa chỉ cũ ngay";
 heroCopy.textContent =
-  "Chỉ cần nhập địa chỉ hiện tại. Hệ thống sẽ tự tìm tọa độ, dò ranh giới hành chính cũ và trả lại địa chỉ trước sáp nhập.";
+  "Nhập địa chỉ bạn đang dùng, hệ thống sẽ giúp bạn tìm lại địa chỉ cũ một cách nhanh gọn và dễ hiểu.";
 formTitle.textContent = "Nhập địa chỉ mới";
 formSubtitle.textContent =
   "Nhập đúng địa chỉ bạn đang dùng để hệ thống tra ra địa chỉ cũ.";
 submitButton.textContent = "Chuyển đổi";
 setStatus("neutral", "Chưa chạy truy vấn.");
 resetResult();
+
+if (hintBadge) {
+  const closeHint = () => hintBadge.classList.remove("is-open");
+
+  hintBadge.addEventListener("mouseenter", () => {
+    hintBadge.classList.add("is-open");
+  });
+
+  hintBadge.addEventListener("mouseleave", closeHint);
+  hintBadge.addEventListener("blur", closeHint);
+  hintBadge.addEventListener("click", (event) => {
+    event.preventDefault();
+    hintBadge.classList.toggle("is-open");
+  });
+}

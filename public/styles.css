@@ -47,37 +47,6 @@ body::before {
   padding: 32px 0 56px;
 }
 
-.mode-tabs {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: var(--shadow);
-  margin-bottom: 22px;
-}
-
-.mode-tab {
-  text-decoration: none;
-  color: var(--muted);
-  padding: 12px 18px;
-  border-radius: 999px;
-  font-weight: 800;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.mode-tab:hover {
-  color: var(--text);
-  transform: translateY(-1px);
-}
-
-.mode-tab.active,
-.mode-tab[aria-current="page"] {
-  color: #06121d;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-}
-
 .hero {
   display: block;
   margin-bottom: 24px;
@@ -221,7 +190,7 @@ label span {
   border-top-color: rgba(6, 16, 29, 0.98);
 }
 
-.hint-badge:hover .hint-tooltip,
+.hint-badge.is-open .hint-tooltip,
 .hint-badge:focus-visible .hint-tooltip {
   opacity: 1;
   transform: translateX(-50%) translateY(-2px);
@@ -255,6 +224,30 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.quick-guide {
+  margin-top: 18px;
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(173, 200, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.quick-guide__label {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.quick-guide__text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 0.95rem;
 }
 
 button {
@@ -349,6 +342,100 @@ button.secondary {
   animation: fadeIn 0.28s ease-out;
 }
 
+.site-footer {
+  margin-top: 24px;
+  padding-bottom: 8px;
+}
+
+.site-footer__card {
+  border: 1px solid var(--card-border);
+  background: rgba(10, 20, 36, 0.7);
+  box-shadow: var(--shadow);
+  border-radius: 22px;
+  padding: 18px 20px;
+}
+
+.site-footer__footer-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 16px;
+}
+
+.site-footer__label {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.site-footer__text {
+  margin: 4px 0;
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 0.96rem;
+}
+
+.site-footer__note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.site-footer__support {
+  display: grid;
+  gap: 14px;
+  padding-left: 16px;
+  border-left: 1px solid rgba(173, 200, 255, 0.14);
+}
+
+.support-qr {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 150px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  overflow: hidden;
+}
+
+.support-qr span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  border: 1px solid rgba(173, 200, 255, 0.22);
+  background: rgba(6, 16, 29, 0.7);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+}
+
+.support-qr img {
+  display: block;
+  width: min(100%, 240px);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.support-qr small {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -364,23 +451,23 @@ button.secondary {
   .workspace {
     grid-template-columns: 1fr;
   }
+
+  .site-footer__footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .site-footer__support {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(173, 200, 255, 0.14);
+    padding-top: 16px;
+  }
 }
 
 @media (max-width: 720px) {
   .shell {
     width: min(100% - 20px, 1240px);
     padding-top: 20px;
-  }
-
-  .mode-tabs {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .mode-tab {
-    flex: 1;
-    text-align: center;
-    padding-inline: 12px;
   }
 
   .grid-2,
