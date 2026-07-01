@@ -1,5 +1,6 @@
-﻿const form = document.getElementById("convert-form");
+const form = document.getElementById("convert-form");
 const addressInput = document.getElementById("address-input");
+const suggestionsBox = document.getElementById("suggestions");
 const statusBox = document.getElementById("status");
 const convertedAddressBox = document.getElementById("converted-address");
 const provinceBox = document.getElementById("province");
@@ -38,6 +39,12 @@ const mapStores = {
 };
 
 let oldBoundariesPromise = null;
+let selectedSuggestion = null;
+let suggestionRequestController = null;
+let suggestionDebounceTimer = null;
+let lastSuggestionQuery = "";
+let lastSuggestions = [];
+let activeSuggestionIndex = -1;
 
 function buildRegionLabel(result, feature) {
   const administrative = result?.converted_administrative || {};
@@ -156,7 +163,11 @@ function renderMap(which, result) {
 
   const coords = result?.geocoded_coordinates || result?.input_coordinates;
 
-  if (which === "input" && Number.isFinite(coords?.latitude) && Number.isFinite(coords?.longitude)) {
+  if (
+    which === "input" &&
+    Number.isFinite(coords?.latitude) &&
+    Number.isFinite(coords?.longitude)
+  ) {
     const latlng = [coords.latitude, coords.longitude];
     store.pointLayer = L.circleMarker(latlng, {
       radius: 8,
@@ -186,12 +197,13 @@ function renderMap(which, result) {
         }
 
         const featureId = result?.matched_feature?.feature_id;
-        const highlighted = featureId && geojson?.features
-          ? geojson.features.find((feature) => {
-              const sourceId = feature.id ?? feature.properties?.ma_xa ?? null;
-              return String(sourceId) === String(featureId);
-            })
-          : null;
+        const highlighted =
+          featureId && geojson?.features
+            ? geojson.features.find((feature) => {
+                const sourceId = feature.id ?? feature.properties?.ma_xa ?? null;
+                return String(sourceId) === String(featureId);
+              })
+            : null;
 
         const highlightGeometry = highlighted?.geometry || geometry;
 
@@ -220,7 +232,11 @@ function renderMap(which, result) {
 
         const regionLabel = buildRegionLabel(result, highlighted || result?.matched_feature);
         if (regionLabel) {
-          store.highlightLabel = addCenterLabel(store, regionLabel, store.highlightLayer.getBounds());
+          store.highlightLabel = addCenterLabel(
+            store,
+            regionLabel,
+            store.highlightLayer.getBounds()
+          );
         }
 
         store.map.invalidateSize();
@@ -229,12 +245,14 @@ function renderMap(which, result) {
       };
 
       if (!store.baseLayer) {
-        oldBoundariesPromise = oldBoundariesPromise || fetch("/api/old-boundaries.geojson").then((response) => {
-          if (!response.ok) {
-            throw new Error("Không tải được geojson địa giới cũ.");
-          }
-          return response.json();
-        });
+        oldBoundariesPromise =
+          oldBoundariesPromise ||
+          fetch("/api/old-boundaries.geojson").then((response) => {
+            if (!response.ok) {
+              throw new Error("Không tải được geojson địa giới cũ.");
+            }
+            return response.json();
+          });
 
         oldBoundariesPromise
           .then(applyHighlight)
@@ -256,14 +274,10 @@ function renderMap(which, result) {
   } else {
     store.map.invalidateSize();
     store.map.setView(store.center, store.zoom);
-    setMapStatus(
-      which,
-      which === "input"
-        ? "Chưa có dữ liệu."
-        : "Hãy nhập địa chỉ để xem."
-    );
+    setMapStatus(which, which === "input" ? "Chưa có dữ liệu." : "Hãy nhập địa chỉ để xem.");
   }
 }
+
 function resetResult() {
   convertedAddressBox.textContent = "-";
   convertedAddressBox.classList.add("muted");
@@ -310,50 +324,128 @@ function setResult(result) {
   renderMap("result", result);
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+function clearSuggestions() {
+  if (suggestionRequestController) {
+    suggestionRequestController.abort();
+    suggestionRequestController = null;
+  }
+  if (suggestionsBox) {
+    suggestionsBox.innerHTML = "";
+    suggestionsBox.classList.remove("is-open");
+  }
+  activeSuggestionIndex = -1;
+}
 
-  const formatted_address = addressInput.value.trim();
+function renderSuggestions(items) {
+  if (!suggestionsBox) return;
 
-  if (!formatted_address) {
-    setStatus("error", "Vui lòng nhập địa chỉ hợp lệ.");
+  lastSuggestions = Array.isArray(items) ? items : [];
+  suggestionsBox.__items = lastSuggestions;
+
+  if (!Array.isArray(lastSuggestions) || lastSuggestions.length === 0) {
+    suggestionsBox.innerHTML = "";
+    suggestionsBox.classList.remove("is-open");
     return;
   }
 
-  setStatus("neutral", "Đang tìm tọa độ và tra địa chỉ cũ...");
-  submitButton.disabled = true;
+  suggestionsBox.innerHTML = lastSuggestions
+    .map((item, index) => {
+      const meta = [item.type, item.subtext].filter(Boolean).join(" · ");
+      return `
+        <button type="button" class="suggestion-item${index === activeSuggestionIndex ? " is-active" : ""}" data-index="${index}">
+          <span class="suggestion-item__title">${escapeHtml(item.value)}</span>
+          ${meta ? `<span class="suggestion-item__meta">${escapeHtml(meta)}</span>` : ""}
+        </button>
+      `;
+    })
+    .join("");
+
+  suggestionsBox.classList.add("is-open");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function fetchSuggestions(query) {
+  const normalized = String(query || "").trim();
+  if (!normalized) {
+    renderSuggestions([]);
+    return [];
+  }
+
+  if (normalized === lastSuggestionQuery) {
+    renderSuggestions(lastSuggestions);
+    return lastSuggestions;
+  }
+
+  lastSuggestionQuery = normalized;
+
+  if (suggestionRequestController) {
+    suggestionRequestController.abort();
+  }
+
+  suggestionRequestController = new AbortController();
 
   try {
-    const response = await fetch("/convert-address", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        formatted_address,
-      }),
+    const response = await fetch(`/api/address-suggestions?q=${encodeURIComponent(normalized)}`, {
+      signal: suggestionRequestController.signal,
     });
 
-    const result = await response.json();
-    setResult(result);
-  } catch (error) {
-    setStatus("error", "Lỗi mạng, vui lòng thử lại.");
-  } finally {
-    submitButton.disabled = false;
+    if (!response.ok) {
+      renderSuggestions([]);
+      return [];
+    }
+
+    const data = await response.json();
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+    renderSuggestions(suggestions);
+    return suggestions;
+  } catch (_error) {
+    renderSuggestions([]);
+    return [];
   }
-});
+}
 
-heroTitle.textContent = "Nhập địa chỉ mới, xem địa chỉ cũ ngay";
-heroCopy.textContent =
-  "Nhập địa chỉ bạn đang dùng, hệ thống sẽ giúp bạn tìm lại địa chỉ cũ một cách nhanh gọn và dễ hiểu.";
-formTitle.textContent = "Nhập địa chỉ mới";
-formSubtitle.textContent =
-  "Nhập đúng địa chỉ bạn đang dùng để hệ thống tra ra địa chỉ cũ.";
-submitButton.textContent = "Chuyển đổi";
-setStatus("neutral", "Chưa chạy truy vấn.");
-resetResult();
+function pickSuggestion(item) {
+  if (!item) return;
 
-if (hintBadge) {
+  selectedSuggestion = item;
+  addressInput.value = item.value || "";
+  clearSuggestions();
+
+  if (Number.isFinite(item.latitude) && Number.isFinite(item.longitude)) {
+    renderMap("input", {
+      geocoded_coordinates: {
+        latitude: item.latitude,
+        longitude: item.longitude,
+        provider: "serpapi",
+        display_name: item.value,
+        query: item.value,
+      },
+    });
+    setStatus("neutral", "Đã chọn gợi ý. Bạn có thể bấm Chuyển đổi để tra địa chỉ cũ.");
+  } else {
+    setStatus("neutral", "Đã chọn gợi ý. Hệ thống sẽ tra tọa độ khi bạn chuyển đổi.");
+  }
+}
+
+function selectSuggestionByIndex(index) {
+  if (!Array.isArray(lastSuggestions) || lastSuggestions.length === 0) return;
+
+  const boundedIndex = Math.max(0, Math.min(index, lastSuggestions.length - 1));
+  activeSuggestionIndex = boundedIndex;
+  renderSuggestions(lastSuggestions);
+}
+
+function wireHintBadge() {
+  if (!hintBadge) return;
+
   const closeHint = () => hintBadge.classList.remove("is-open");
 
   hintBadge.addEventListener("mouseenter", () => {
@@ -368,42 +460,180 @@ if (hintBadge) {
   });
 }
 
-if (window.L) {
-  ensureMap("input");
-  ensureMap("result");
+async function bootstrap() {
+  heroTitle.textContent = "Nhập địa chỉ mới, xem địa chỉ cũ ngay";
+  heroCopy.textContent =
+    "Nhập địa chỉ bạn đang dùng, hệ thống sẽ gợi ý từ SerpApi rồi giúp bạn tìm lại địa chỉ cũ nhanh gọn.";
+  formTitle.textContent = "Nhập địa chỉ mới";
+  formSubtitle.textContent =
+    "Gõ địa chỉ để nhận gợi ý, chọn đúng vị trí rồi chuyển đổi sang địa chỉ cũ.";
+  submitButton.textContent = "Chuyển đổi";
+
+  if (window.L) {
+    ensureMap("input");
+    ensureMap("result");
+  }
+
+  wireHintBadge();
+
+  if (addressInput) {
+    addressInput.addEventListener("input", () => {
+      selectedSuggestion = null;
+      clearSuggestions();
+      activeSuggestionIndex = -1;
+      const value = addressInput.value.trim();
+
+      if (suggestionDebounceTimer) {
+        clearTimeout(suggestionDebounceTimer);
+      }
+
+      if (!value) {
+        lastSuggestionQuery = "";
+        return;
+      }
+
+      suggestionDebounceTimer = setTimeout(() => {
+        fetchSuggestions(value);
+      }, 250);
+    });
+
+    addressInput.addEventListener("focus", () => {
+      const value = addressInput.value.trim();
+      if (value) {
+        fetchSuggestions(value);
+      }
+    });
+
+    addressInput.addEventListener("keydown", (event) => {
+      if (!suggestionsBox || !suggestionsBox.classList.contains("is-open")) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        selectSuggestionByIndex(activeSuggestionIndex + 1);
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        selectSuggestionByIndex(activeSuggestionIndex - 1);
+        return;
+      }
+
+      if (event.key === "Enter" && activeSuggestionIndex >= 0) {
+        event.preventDefault();
+        pickSuggestion(lastSuggestions[activeSuggestionIndex]);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        clearSuggestions();
+      }
+    });
+  }
+
+  if (suggestionsBox) {
+    suggestionsBox.addEventListener("click", (event) => {
+      const button = event.target.closest(".suggestion-item");
+      if (!button) return;
+
+      const index = Number(button.dataset.index);
+      const loaded = suggestionsBox.__items || [];
+      pickSuggestion(loaded[index]);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!suggestionsBox || !addressInput) return;
+
+    const insideInput = addressInput.contains(event.target);
+    const insideSuggestions = suggestionsBox.contains(event.target);
+
+    if (!insideInput && !insideSuggestions) {
+      clearSuggestions();
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formatted_address = addressInput.value.trim();
+
+    if (!formatted_address) {
+      setStatus("error", "Vui lòng nhập địa chỉ hợp lệ.");
+      return;
+    }
+
+    const payload = {
+      formatted_address,
+    };
+
+    if (
+      selectedSuggestion &&
+      Number.isFinite(selectedSuggestion.latitude) &&
+      Number.isFinite(selectedSuggestion.longitude)
+    ) {
+      payload.latitude = selectedSuggestion.latitude;
+      payload.longitude = selectedSuggestion.longitude;
+    }
+
+    setStatus("neutral", "Đang lấy tọa độ từ SerpApi và tra địa chỉ cũ...");
+    submitButton.disabled = true;
+
+    try {
+      const response = await fetch("/convert-address", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      setResult(result);
+    } catch (_error) {
+      setStatus("error", "Lỗi mạng, vui lòng thử lại.");
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  setStatus("neutral", "Chưa chạy truy vấn.");
+  resetResult();
+
+  setMapStatus("result", "Đang tải bản đồ địa giới cũ...");
+  oldBoundariesPromise = fetch("/api/old-boundaries.geojson")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Không tải được geojson địa giới cũ.");
+      }
+
+      return response.json();
+    })
+    .then((geojson) => {
+      if (!window.L || !mapStores.result.map) return geojson;
+
+      const store = mapStores.result;
+      if (!store.baseLayer) {
+        store.baseLayer = L.geoJSON(geojson, {
+          style: {
+            color: "#b9c6d8",
+            weight: 0.8,
+            opacity: 0.45,
+            fillColor: "#f3f7fb",
+            fillOpacity: 0.02,
+          },
+        }).addTo(store.map);
+
+        store.map.fitBounds(store.baseLayer.getBounds().pad(0.05));
+        setMapStatus("result", "Đã hiển thị bản đồ địa giới cũ.");
+      }
+
+      return geojson;
+    })
+    .catch(() => {
+      setMapStatus("result", "Không tải được bản đồ địa giới cũ.");
+      return null;
+    });
 }
 
-setMapStatus("result", "Đang tải bản đồ địa giới cũ...");
-oldBoundariesPromise = fetch("/api/old-boundaries.geojson")
-  .then((response) => {
-    if (!response.ok) {
-      throw new Error("Không tải được geojson địa giới cũ.");
-    }
-
-    return response.json();
-  })
-  .then((geojson) => {
-    if (!window.L || !mapStores.result.map) return geojson;
-
-    const store = mapStores.result;
-    if (!store.baseLayer) {
-      store.baseLayer = L.geoJSON(geojson, {
-        style: {
-          color: "#b9c6d8",
-          weight: 0.8,
-          opacity: 0.45,
-          fillColor: "#f3f7fb",
-          fillOpacity: 0.02,
-        },
-      }).addTo(store.map);
-
-      store.map.fitBounds(store.baseLayer.getBounds().pad(0.05));
-      setMapStatus("result", "Đã hiển thị bản đồ địa giới cũ.");
-    }
-
-    return geojson;
-  })
-  .catch(() => {
-    setMapStatus("result", "Không tải được bản đồ địa giới cũ.");
-    return null;
-  });
+bootstrap();

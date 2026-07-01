@@ -213,6 +213,57 @@ textarea {
   min-height: 138px;
 }
 
+.suggestions {
+  display: none;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(173, 200, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(7, 17, 31, 0.98);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.26);
+}
+
+.suggestions.is-open {
+  display: grid;
+}
+
+.suggestion-item {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 12px 14px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  display: grid;
+  gap: 4px;
+}
+
+.suggestion-item + .suggestion-item {
+  border-top: 1px solid rgba(173, 200, 255, 0.08);
+}
+
+.suggestion-item:hover,
+.suggestion-item:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.suggestion-item.is-active {
+  background: rgba(94, 234, 212, 0.12);
+  outline: 1px solid rgba(94, 234, 212, 0.22);
+}
+
+.suggestion-item__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.suggestion-item__meta {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

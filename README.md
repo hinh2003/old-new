@@ -10,10 +10,11 @@ The app supports one mode:
 
 Flow:
 
-1. User enters a current address in the frontend.
-2. Backend geocodes it with Photon.
-3. Backend performs point-in-polygon against the old boundary GeoJSON.
-4. The matched old ward, district, and province are merged back into the address.
+1. User types a current address in the frontend and gets SerpApi Google Maps suggestions.
+2. If the suggestion includes coordinates, the frontend sends them directly.
+3. If not, the backend resolves the address with SerpApi Google Maps search.
+4. Backend performs point-in-polygon against the old boundary GeoJSON.
+5. The matched old ward, district, and province are merged back into the address.
 
 ## Run
 
@@ -27,8 +28,11 @@ Open the app at `http://localhost:3000`.
 Create a `.env` file before running:
 
 ```bash
-PHOTON_BASE_URL=https://photon.komoot.io
+SERPAPI_API_KEY=your_serpapi_key
+SERPAPI_BASE_URL=https://serpapi.com
 ```
+
+You need a SerpApi key with access to the Google Maps engine and autocomplete engine.
 
 ## API
 
@@ -77,7 +81,7 @@ Success response:
   "geocoded_coordinates": {
     "latitude": 21.013245,
     "longitude": 105.527913,
-    "provider": "photon",
+    "provider": "serpapi",
     "display_name": "...",
     "query": "..."
   },
@@ -133,5 +137,9 @@ The UI is served from the same Express app:
 - `PORT`: server port, default `3000`
 - `OLD_BOUNDARIES_PATH`: path to the old boundary GeoJSON file
 - `GRID_SIZE`: spatial grid size in degrees, default `0.1`
-- `PHOTON_BASE_URL`: Photon fallback base URL
-- The app currently uses Photon only for geocoding
+- `SERPAPI_API_KEY`: SerpApi key used by the frontend suggestion endpoint and backend geocoding fallback
+- `SERPAPI_BASE_URL`: SerpApi base URL, default `https://serpapi.com`
+- `SERPAPI_GOOGLE_DOMAIN`: Google domain used by the Google Maps search engine, default `google.com`
+- `SERPAPI_GL`: country code used for SerpApi queries, default `vn`
+- `SERPAPI_HL`: language used for SerpApi queries, default `vi`
+- The app currently uses SerpApi for geocoding and address suggestions

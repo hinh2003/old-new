@@ -4,12 +4,16 @@ const path = require("path");
 
 const { BoundaryRepository } = require("./services/boundaryRepository");
 const { AddressConversionService } = require("./services/addressConversionService");
-const { GeocodingService } = require("./services/geocodingService");
+const { SerpApiService } = require("./services/serpApiService");
 const { createLogger } = require("./utils/logger");
 const {
   oldBoundariesPath,
   gridSize,
-  photonBaseUrl,
+  serpApiKey,
+  serpApiBaseUrl,
+  serpApiGoogleDomain,
+  serpApiGl,
+  serpApiHl,
 } = require("./config");
 
 function createApp() {
@@ -24,18 +28,20 @@ function createApp() {
     gridSize,
   }).load();
 
-  const geocodingService = new GeocodingService({
-    photonBaseUrl,
+  const serpApiService = new SerpApiService({
+    apiKey: serpApiKey,
+    baseUrl: serpApiBaseUrl,
+    googleDomain: serpApiGoogleDomain,
+    gl: serpApiGl,
+    hl: serpApiHl,
     logger,
   });
 
-  const conversionService = new AddressConversionService(
-    {
-      targetRepository: boundaryRepository,
-      geocodingService,
-      logger,
-    }
-  );
+  const conversionService = new AddressConversionService({
+    targetRepository: boundaryRepository,
+    geocodingService: serpApiService,
+    logger,
+  });
 
   app.get("/", (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "public", "index.html"));
@@ -46,7 +52,7 @@ function createApp() {
       success: true,
       status: "ok",
       loaded_features: boundaryRepository.features.length,
-      geocoding_provider: "photon",
+      geocoding_provider: "serpapi",
     });
   });
 
@@ -57,9 +63,39 @@ function createApp() {
         loaded_features: boundaryRepository.features.length,
       },
       grid_size: gridSize,
-      geocoding_provider: "photon",
-      photon_base_url: photonBaseUrl,
+      geocoding_provider: "serpapi",
+      serpapi_api_key_present: Boolean(serpApiKey),
     });
+  });
+
+  app.get("/api/address-suggestions", async (req, res) => {
+    const query = String(req.query.q || "").trim();
+
+    if (!query) {
+      return res.json({
+        success: true,
+        query: "",
+        suggestions: [],
+      });
+    }
+
+    try {
+      const suggestions = await serpApiService.autocomplete(query);
+      return res.json({
+        success: true,
+        query,
+        suggestions,
+      });
+    } catch (error) {
+      logger.error("autocomplete error", {
+        query,
+        error: error.message || String(error),
+      });
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Unexpected error during autocomplete.",
+      });
+    }
   });
 
   app.get("/api/old-boundaries.geojson", (_req, res) => {
