@@ -1,10 +1,11 @@
 class SerpApiService {
-  constructor({ apiKey, baseUrl, googleDomain, gl, hl, logger }) {
+  constructor({ apiKey, baseUrl, googleDomain, gl, hl, ll, logger }) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.googleDomain = googleDomain;
     this.gl = gl;
     this.hl = hl;
+    this.ll = ll;
     this.logger = logger || console;
     this.cache = new Map();
   }
@@ -68,6 +69,7 @@ class SerpApiService {
       q: normalizedQuery,
       gl: this.gl,
       hl: this.hl,
+      ll: this.ll,
     });
 
     const data = await this.requestJson(url, {
@@ -123,6 +125,7 @@ class SerpApiService {
       google_domain: this.googleDomain,
       gl: this.gl,
       hl: this.hl,
+      ll: this.ll,
     });
 
     const data = await this.requestJson(url, {
@@ -132,7 +135,10 @@ class SerpApiService {
     });
 
     const localResults = Array.isArray(data?.local_results) ? data.local_results : [];
-    if (localResults.length === 0) {
+    const placeResults = Array.isArray(data?.place_results) ? data.place_results : [];
+    const results = localResults.length > 0 ? localResults : placeResults;
+
+    if (results.length === 0) {
       this.logger.warn("serpapi no result", {
         provider: "serpapi",
         engine: "google_maps",
@@ -143,11 +149,11 @@ class SerpApiService {
     }
 
     const best =
-      localResults.find(
+      results.find(
         (item) =>
           Number.isFinite(item?.gps_coordinates?.latitude) &&
           Number.isFinite(item?.gps_coordinates?.longitude)
-      ) || localResults[0];
+      ) || results[0];
 
     const coords = best?.gps_coordinates || {};
     if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {

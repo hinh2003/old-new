@@ -30,6 +30,10 @@ Create a `.env` file before running:
 ```bash
 SERPAPI_API_KEY=your_serpapi_key
 SERPAPI_BASE_URL=https://serpapi.com
+SERPAPI_GOOGLE_DOMAIN=google.com
+SERPAPI_GL=vn
+SERPAPI_HL=vi
+SERPAPI_LL=@16.047079,108.20623,6z
 ```
 
 You need a SerpApi key with access to the Google Maps engine and autocomplete engine.
@@ -142,4 +146,5 @@ The UI is served from the same Express app:
 - `SERPAPI_GOOGLE_DOMAIN`: Google domain used by the Google Maps search engine, default `google.com`
 - `SERPAPI_GL`: country code used for SerpApi queries, default `vn`
 - `SERPAPI_HL`: language used for SerpApi queries, default `vi`
+- `SERPAPI_LL`: location bias for SerpApi queries, default `@16.047079,108.20623,6z`
 - The app currently uses SerpApi for geocoding and address suggestions

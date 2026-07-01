@@ -15,4 +15,5 @@ module.exports = {
   serpApiGoogleDomain: process.env.SERPAPI_GOOGLE_DOMAIN || "google.com",
   serpApiGl: process.env.SERPAPI_GL || "vn",
   serpApiHl: process.env.SERPAPI_HL || "vi",
+  serpApiLl: process.env.SERPAPI_LL || "@16.047079,108.20623,6z",
 };

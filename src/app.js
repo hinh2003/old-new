@@ -14,6 +14,7 @@ const {
   serpApiGoogleDomain,
   serpApiGl,
   serpApiHl,
+  serpApiLl,
 } = require("./config");
 
 function createApp() {
@@ -34,6 +35,7 @@ function createApp() {
     googleDomain: serpApiGoogleDomain,
     gl: serpApiGl,
     hl: serpApiHl,
+    ll: serpApiLl,
     logger,
   });
 
@@ -65,6 +67,7 @@ function createApp() {
       grid_size: gridSize,
       geocoding_provider: "serpapi",
       serpapi_api_key_present: Boolean(serpApiKey),
+      serpapi_ll: serpApiLl,
     });
   });
 
